@@ -6,13 +6,14 @@ export default function SimpleMapFallback() {
   const [error, setError] = useState<string>('');
   const [lat, setLat] = useState('23.0225');
   const [lng, setLng] = useState('72.5714');
+  const [useCase, setUseCase] = useState('retail');
 
   const analyzeLocation = async (latitude: number, longitude: number) => {
     setLoading(true);
     setError('');
     
     try {
-      console.log('Analyzing location:', latitude, longitude);
+      console.log('Analyzing location:', latitude, longitude, 'Use case:', useCase);
       
       const response = await fetch('http://localhost:8000/api/v1/enhanced/score', {
         method: 'POST',
@@ -23,7 +24,7 @@ export default function SimpleMapFallback() {
         body: JSON.stringify({ 
           lat: latitude, 
           lng: longitude, 
-          use_case: 'retail' 
+          use_case: useCase 
         })
       });
       
@@ -52,6 +53,11 @@ export default function SimpleMapFallback() {
     const longitude = parseFloat(lng);
     
     if (!isNaN(latitude) && !isNaN(longitude)) {
+      // Validate coordinates are within reasonable bounds for Ahmedabad
+      if (latitude < 22.8 || latitude > 23.2 || longitude < 72.3 || longitude > 72.8) {
+        setError('Please enter coordinates within the Ahmedabad area (Lat: 22.8-23.2, Lng: 72.3-72.8)');
+        return;
+      }
       analyzeLocation(latitude, longitude);
     } else {
       setError('Please enter valid coordinates');
@@ -60,6 +66,25 @@ export default function SimpleMapFallback() {
 
   const testAPI = () => {
     analyzeLocation(23.0225, 72.5714);
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return '#10b981';
+    if (score >= 65) return '#3b82f6';
+    if (score >= 50) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const getUseCaseIcon = (useCase: string) => {
+    const icons = {
+      retail: '🏪',
+      office: '🏢', 
+      warehouse: '🏭',
+      restaurant: '🍽️',
+      residential: '🏠',
+      industrial: '🏗️'
+    };
+    return icons[useCase as keyof typeof icons] || '📍';
   };
 
   return (
@@ -96,6 +121,30 @@ export default function SimpleMapFallback() {
           </p>
           
           <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold', color: '#555' }}>
+                Use Case
+              </label>
+              <select
+                value={useCase}
+                onChange={(e) => setUseCase(e.target.value)}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '2px solid #ddd', 
+                  borderRadius: '8px', 
+                  fontSize: '16px'
+                }}
+              >
+                <option value="retail">🏪 Retail Store</option>
+                <option value="office">🏢 Office Space</option>
+                <option value="warehouse">🏭 Warehouse</option>
+                <option value="restaurant">🍽️ Restaurant</option>
+                <option value="residential">🏠 Residential</option>
+                <option value="industrial">🏗️ Industrial</option>
+              </select>
+            </div>
+            
             <div style={{ marginBottom: '12px' }}>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 'bold', color: '#555' }}>
                 Latitude (Ahmedabad area: 22.9 - 23.1)
@@ -152,7 +201,7 @@ export default function SimpleMapFallback() {
                 marginBottom: '12px'
               }}
             >
-              {loading ? '🔍 Analyzing...' : '🎯 Analyze Location'}
+              {loading ? '🔍 Analyzing...' : `🎯 Analyze ${getUseCaseIcon(useCase)} Location`}
             </button>
 
             <button
@@ -249,8 +298,7 @@ export default function SimpleMapFallback() {
               <div style={{
                 fontSize: '56px',
                 fontWeight: 'bold',
-                color: data.composite_score >= 70 ? '#28a745' : 
-                       data.composite_score >= 50 ? '#ffc107' : '#dc3545',
+                color: getScoreColor(data.composite_score),
                 margin: '12px 0',
                 lineHeight: 1
               }}>
@@ -258,6 +306,9 @@ export default function SimpleMapFallback() {
               </div>
               <div style={{ fontSize: '14px', color: '#666' }}>out of 100</div>
               <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
+                {getUseCaseIcon(data.use_case)} {data.use_case.charAt(0).toUpperCase() + data.use_case.slice(1)} Development
+              </div>
+              <div style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
                 📍 {data.location?.latitude?.toFixed(4)}, {data.location?.longitude?.toFixed(4)}
               </div>
             </div>
@@ -265,26 +316,37 @@ export default function SimpleMapFallback() {
             {/* Recommendation */}
             {data.recommendation && (
               <div style={{
-                background: 'white',
+                background: data.composite_score >= 70 ? '#d1fae5' : data.composite_score >= 55 ? '#fef3c7' : '#fee2e2',
                 padding: '20px',
-                borderRadius: '10px',
+                borderRadius: '12px',
                 marginBottom: '20px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                border: `2px solid ${data.composite_score >= 70 ? '#10b981' : data.composite_score >= 55 ? '#f59e0b' : '#ef4444'}`
               }}>
-                <h4 style={{ margin: '0 0 12px 0', color: '#333', fontSize: '16px' }}>
-                  📋 Recommendation
-                </h4>
-                <div style={{ 
-                  fontWeight: 'bold', 
-                  marginBottom: '8px',
-                  color: data.composite_score >= 70 ? '#28a745' : 
-                         data.composite_score >= 50 ? '#ffc107' : '#dc3545'
-                }}>
+                <h4 style={{ margin: '0 0 12px 0', color: '#333', fontSize: '16px', fontWeight: 'bold' }}>
                   {data.recommendation.verdict}
-                </div>
-                <div style={{ fontSize: '14px', color: '#666', lineHeight: 1.4 }}>
+                </h4>
+                <div style={{ fontSize: '14px', color: '#555', lineHeight: 1.4, marginBottom: '12px' }}>
                   {data.recommendation.summary}
                 </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#333' }}>
+                  ✅ {data.recommendation.action}
+                </div>
+                {data.recommendation.strengths && data.recommendation.strengths.length > 0 && (
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#059669', marginBottom: '4px' }}>Strengths:</div>
+                    {data.recommendation.strengths.map((strength: string, i: number) => (
+                      <div key={i} style={{ fontSize: '12px', color: '#059669' }}>• {strength}</div>
+                    ))}
+                  </div>
+                )}
+                {data.recommendation.weaknesses && data.recommendation.weaknesses.length > 0 && (
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#dc2626', marginBottom: '4px' }}>Considerations:</div>
+                    {data.recommendation.weaknesses.map((weakness: string, i: number) => (
+                      <div key={i} style={{ fontSize: '12px', color: '#dc2626' }}>• {weakness}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -297,39 +359,77 @@ export default function SimpleMapFallback() {
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
               }}>
                 <h4 style={{ margin: '0 0 16px 0', color: '#333', fontSize: '16px' }}>
-                  📊 Analysis Breakdown
+                  📊 Detailed Analysis
                 </h4>
                 
-                {Object.entries(data.analysis).map(([key, value]: [string, any]) => (
-                  <div key={key} style={{ marginBottom: '12px' }}>
-                    <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '4px'
-                    }}>
-                      <span style={{ fontWeight: 'bold', textTransform: 'capitalize' }}>
-                        {key === 'demographics' ? '👥 Demographics' :
-                         key === 'transport' ? '🚗 Transport' :
-                         key === 'infrastructure' ? '🏗️ Infrastructure' :
-                         key === 'market' ? '📈 Market' :
-                         key === 'environment' ? '🌿 Environment' : key}:
-                      </span>
-                      <span style={{ 
-                        fontWeight: 'bold',
-                        color: value.score >= 70 ? '#28a745' : 
-                               value.score >= 50 ? '#ffc107' : '#dc3545'
-                      }}>
-                        {value.score}/100
-                      </span>
+                {/* Demographics */}
+                {data.analysis.demographics && (
+                  <div style={{ marginBottom: '16px', padding: '12px', background: '#f8f9fa', borderRadius: '8px' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+                      👥 Demographics ({data.analysis.demographics.score}/100)
                     </div>
-                    {value.analysis && (
-                      <div style={{ fontSize: '12px', color: '#666', paddingLeft: '8px' }}>
-                        {value.analysis}
-                      </div>
-                    )}
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      Population: {data.analysis.demographics.population?.toLocaleString()} • 
+                      Income: ₹{data.analysis.demographics.income?.toLocaleString()}/year • 
+                      Type: {data.analysis.demographics.area_type}
+                    </div>
                   </div>
-                ))}
+                )}
+
+                {/* Transport */}
+                {data.analysis.transport && (
+                  <div style={{ marginBottom: '16px', padding: '12px', background: '#f8f9fa', borderRadius: '8px' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+                      🚗 Transport ({data.analysis.transport.score}/100)
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      Highway: {data.analysis.transport.highway_distance}km ({data.analysis.transport.highway_access}) • 
+                      Airport: {data.analysis.transport.airport_distance}km
+                    </div>
+                  </div>
+                )}
+
+                {/* Infrastructure */}
+                {data.analysis.infrastructure && (
+                  <div style={{ marginBottom: '16px', padding: '12px', background: '#f8f9fa', borderRadius: '8px' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+                      🏗️ Infrastructure ({data.analysis.infrastructure.score}/100)
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      Power: {data.analysis.infrastructure.power_reliability}% • 
+                      Water: {data.analysis.infrastructure.water_supply}% • 
+                      Internet: {data.analysis.infrastructure.internet_speed} Mbps
+                    </div>
+                  </div>
+                )}
+
+                {/* Market */}
+                {data.analysis.market && (
+                  <div style={{ marginBottom: '16px', padding: '12px', background: '#f8f9fa', borderRadius: '8px' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+                      📈 Market ({data.analysis.market.score}/100)
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      Competitors: {data.analysis.market.competitors} • 
+                      Saturation: {data.analysis.market.market_saturation}% • 
+                      Opportunity: {data.analysis.market.market_opportunity}
+                    </div>
+                  </div>
+                )}
+
+                {/* Environment */}
+                {data.analysis.environment && (
+                  <div style={{ marginBottom: '0', padding: '12px', background: '#f8f9fa', borderRadius: '8px' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+                      🌿 Environment ({data.analysis.environment.score}/100)
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      Flood Risk: {data.analysis.environment.flood_risk}% • 
+                      Air Quality: {data.analysis.environment.air_quality}/100 • 
+                      Safety: {data.analysis.environment.safety_index}/100
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

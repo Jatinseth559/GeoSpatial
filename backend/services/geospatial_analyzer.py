@@ -297,8 +297,143 @@ class GeoSpatialAnalyzer:
             'summary': f"{verdict} for {use_case} development with {confidence.lower()} confidence"
         }
 
+    async def validate_terrain_suitability(self, lat: float, lng: float) -> Dict[str, Any]:
+        """Validate if the terrain is suitable for development."""
+        
+        # Check if location is in water bodies, beaches, or mountains
+        # Using coordinate-based heuristics for Gujarat state
+        
+        # Define Gujarat's approximate boundaries and unsuitable areas
+        # Gujarat is roughly between 20.0-24.8 lat, 68.0-74.6 lng
+        
+        # Check if coordinates are way outside Gujarat (likely water/mountains/other states)
+        if lat < 19.5 or lat > 25.0 or lng < 67.5 or lng > 75.0:
+            return {
+                'is_suitable': False,
+                'reason': 'Location is outside the Gujarat state development area',
+                'unsuitable_type': 'out_of_bounds'
+            }
+        
+        # Check for water bodies (Arabian Sea is west of Gujarat)
+        # If longitude is too low (west), it's likely Arabian Sea
+        if lng < 68.5:
+            return {
+                'is_suitable': False,
+                'reason': 'Location appears to be in Arabian Sea or coastal water body unsuitable for development',
+                'unsuitable_type': 'water_body'
+            }
+        
+        # Check for mountainous regions (Aravalli hills in eastern Gujarat)
+        # If coordinates suggest hilly/mountainous terrain in eastern regions
+        if lat > 24.2 and lng > 73.5:
+            return {
+                'is_suitable': False,
+                'reason': 'Location appears to be in mountainous terrain (Aravalli hills) unsuitable for commercial development',
+                'unsuitable_type': 'mountainous'
+            }
+        
+        # Check for Rann of Kutch (salt marsh in northern Gujarat)
+        # Northern Gujarat salt flats and marshlands
+        if lat > 23.8 and lng < 70.5:
+            return {
+                'is_suitable': False,
+                'reason': 'Location appears to be in Rann of Kutch salt marsh area unsuitable for development',
+                'unsuitable_type': 'salt_marsh'
+            }
+        
+        # Check for beach/coastal areas (very low longitude values along Arabian Sea)
+        if lng < 69.0 and lat < 22.5:
+            return {
+                'is_suitable': False,
+                'reason': 'Location appears to be in coastal/beach area along Arabian Sea unsuitable for development',
+                'unsuitable_type': 'coastal'
+            }
+        
+        # Check for Gir Forest area (southern Gujarat)
+        if lat < 21.2 and lng > 70.5 and lng < 71.2:
+            return {
+                'is_suitable': False,
+                'reason': 'Location appears to be in Gir Forest protected area unsuitable for commercial development',
+                'unsuitable_type': 'protected_forest'
+            }
+        
+        # Additional check using database for land use zones
+        try:
+            async with engine.begin() as conn:
+                # Check if location is in a green space or water zone
+                result = await conn.execute(text("""
+                    SELECT zone_type FROM land_use_zones 
+                    WHERE ABS(latitude - :lat) < 0.01 AND ABS(longitude - :lng) < 0.01
+                    AND zone_type IN ('green_space', 'water', 'protected_area', 'forest')
+                    LIMIT 1
+                """), {"lat": lat, "lng": lng})
+                
+                unsuitable_zone = result.fetchone()
+                if unsuitable_zone:
+                    zone_type = unsuitable_zone[0]
+                    return {
+                        'is_suitable': False,
+                        'reason': f'Location is in {zone_type.replace("_", " ")} zone unsuitable for commercial development',
+                        'unsuitable_type': zone_type
+                    }
+                
+                # Check for high flood risk areas
+                flood_result = await conn.execute(text("""
+                    SELECT risk_type, severity FROM environmental_risks 
+                    WHERE ABS(latitude - :lat) < 0.01 AND ABS(longitude - :lng) < 0.01
+                    AND risk_type = 'flood' AND severity IN ('high', 'extreme')
+                    LIMIT 1
+                """), {"lat": lat, "lng": lng})
+                
+                flood_risk = flood_result.fetchone()
+                if flood_risk:
+                    return {
+                        'is_suitable': False,
+                        'reason': 'Location is in high flood risk area unsuitable for development',
+                        'unsuitable_type': 'flood_zone'
+                    }
+                    
+        except Exception as e:
+            # If database query fails, continue with coordinate-based validation
+            pass
+        
+        return {
+            'is_suitable': True,
+            'reason': 'Location is suitable for development',
+            'unsuitable_type': None
+        }
+
     async def analyze_site(self, lat: float, lng: float, use_case: str = "mixed") -> Dict[str, Any]:
         """Comprehensive site readiness analysis."""
+        
+        # First, validate terrain suitability
+        terrain_check = await self.validate_terrain_suitability(lat, lng)
+        
+        if not terrain_check['is_suitable']:
+            # Return zero score for unsuitable terrain
+            return {
+                'composite_score': 0.0,
+                'use_case': use_case,
+                'location': {'latitude': lat, 'longitude': lng},
+                'recommendation': {
+                    'verdict': 'UNSUITABLE TERRAIN',
+                    'confidence': 'Very High',
+                    'action': 'Location not suitable for development',
+                    'strengths': [],
+                    'weaknesses': [terrain_check['reason']],
+                    'summary': f"Location unsuitable for {use_case} development - {terrain_check['reason']}"
+                },
+                'analysis': {
+                    'composite_score': 0.0,
+                    'demographics': {'score': 0.0, 'analysis': 'Not applicable - unsuitable terrain'},
+                    'transport': {'score': 0.0, 'analysis': 'Not applicable - unsuitable terrain'},
+                    'infrastructure': {'score': 0.0, 'analysis': 'Not applicable - unsuitable terrain'},
+                    'market': {'score': 0.0, 'analysis': 'Not applicable - unsuitable terrain'},
+                    'environment': {'score': 0.0, 'analysis': terrain_check['reason']}
+                },
+                'weights_used': self.use_cases.get(use_case, {}),
+                'terrain_validation': terrain_check
+            }
         
         # Perform all analyses
         demographics = await self.analyze_demographics(lat, lng)
