@@ -1,1 +1,0 @@
-# GeoSpatial-Site-Readiness-Analyzer
