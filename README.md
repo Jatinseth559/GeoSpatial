@@ -78,27 +78,6 @@ Navigate to `http://localhost:3000` and start analyzing sites!
 - **50-64**: Moderate location ⚠️
 - **Below 50**: Poor location ❌
 
-## 🏗️ Project Structure
-
-```
-gujarat-site-analyzer/
-├── frontend/                 # React TypeScript frontend
-│   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   │   ├── Map/        # Map-related components
-│   │   │   ├── Sidebar/    # Sidebar components
-│   │   │   └── UI/         # General UI components
-│   │   ├── store/          # State management
-│   │   └── api/            # API client
-│   ├── public/             # Static assets
-│   └── package.json
-├── backend/                  # Python backend server
-│   ├── simple_server.py     # Main HTTP server
-│   ├── services/           # Business logic services
-│   └── requirements.txt
-├── test_responsive_map.html  # Responsive testing page
-└── README.md
-```
 
 ## 🛠️ Technology Stack
 
@@ -115,52 +94,7 @@ gujarat-site-analyzer/
 - **JSON API** - RESTful data exchange
 - **CORS Support** - Cross-origin requests
 
-## 📱 Responsive Breakpoints
 
-| Device | Screen Width | Layout |
-|--------|-------------|---------|
-| Desktop | > 768px | Side-by-side |
-| Tablet | ≤ 768px | Stacked (60/40) |
-| Mobile | ≤ 480px | Compact |
-
-## 🔧 API Endpoints
-
-### POST `/api/v1/enhanced/score`
-Analyze a location and get detailed scoring.
-
-**Request:**
-```json
-{
-  "lat": 23.0225,
-  "lng": 72.5714,
-  "use_case": "retail"
-}
-```
-
-**Response:**
-```json
-{
-  "composite_score": 84.5,
-  "demographics": {
-    "score": 88,
-    "total_population": 320379,
-    "income_level": "High Income (Rich)"
-  },
-  "shops": {
-    "score": 82,
-    "competition_level": "Moderate Competition (Optimal)"
-  },
-  "transport": {
-    "score": 85,
-    "highway_access_level": "Excellent (< 1km)"
-  },
-  "recommendation": {
-    "recommendation": "EXCELLENT LOCATION",
-    "reason": "Ideal for retail business...",
-    "action": "Strongly recommended to proceed"
-  }
-}
-```
 
 ## 🎯 Business Use Cases
 
@@ -213,19 +147,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **MapLibre GL** for mapping library
 - **React Community** for excellent documentation
 - **Gujarat Government** for geographic inspiration
-
-## 📞 Support
-
-- 🐛 **Bug Reports**: [Open an Issue](https://github.com/yourusername/gujarat-site-analyzer/issues)
-- 💡 **Feature Requests**: [Start a Discussion](https://github.com/yourusername/gujarat-site-analyzer/discussions)
-- 📧 **Email**: your.email@example.com
-
----
-
-<div align="center">
-
-**Made with ❤️ for Gujarat Business Community**
-
-[⭐ Star this repo](https://github.com/yourusername/gujarat-site-analyzer) • [🍴 Fork it](https://github.com/yourusername/gujarat-site-analyzer/fork) • [📢 Share it](https://twitter.com/intent/tweet?text=Check%20out%20this%20awesome%20Gujarat%20Site%20Analyzer!)
 
 </div>
